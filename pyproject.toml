@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "syncmate"
+version = "0.1.0"
+description = "A tool to incremental copy World of Code to s3 and remote servers"
+authors = ["Runzhi He <rzhe@pku.edu.cn>"]
+license = "GPL-v3"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8.1"
+python-woc = "^0.2.0"
+tqdm = "^4.65.0"
+
+[tool.poetry.group.dev.dependencies]
+types-tqdm = "^4.66.0.20240417"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
