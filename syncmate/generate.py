@@ -60,59 +60,60 @@ def generate_tasks(
 
     _tasks: List[Union[WocSyncCopyTask, WocSyncPartialCopyTask]] = []
 
-    for fname, f in tqdm(_src_files.items()):
+    for fname, src_file in tqdm(_src_files.items()):
         # if doesn't exist in dst, copy
         if not fname in _dst_files:
             _dst_path = infer_path(woc_dst, fname)
             logging.debug(f"{fname}: dst doesn't exist, full copy to {_dst_path}")
             _tasks.append(WocSyncCopyTask(
-                src_path=f.path,
+                src_path=src_file.path,
                 dst_path=_dst_path,
-                size=f.size,
-                digest=f.digest
+                size=src_file.size,
+                digest=src_file.digest
             ))
             continue
 
         # if exists
-        df = _dst_files[fname]
-        if f.size < df.size:
-            logging.warning(f"{fname}: src file size {f.size} < dst file size {df.size}, full copy")
+        dst_file = _dst_files[fname]
+        if src_file.size < dst_file.size:
+            logging.warning(f"{fname}: src file size {src_file.size} < dst file size {dst_file.size}, full copy")
             # src file is smaller, full copy
             _tasks.append(WocSyncCopyTask(
-                src_path=f.path,
-                dst_path=df.path,
-                size=f.size,
-                digest=f.digest
+                src_path=src_file.path,
+                dst_path=dst_file.path,
+                size=src_file.size,
+                digest=src_file.digest
             ))
             continue
 
-        _head_digest = sample_md5(f.path, size=df.size)
-        if f.size == df.size and _head_digest == df.digest:
-            logging.debug(f"{fname}: size {f.size} and digest {_head_digest} match, skipping")
+        _head_digest = sample_md5(src_file.path, size=dst_file.size)
+        if src_file.size == dst_file.size and _head_digest == dst_file.digest:
+            logging.debug(f"{fname}: size {src_file.size} and digest {_head_digest} match, skipping")
             # digest and size match
             continue
 
-        elif f.size > df.size and _head_digest == df.digest:
+        elif src_file.size > dst_file.size and _head_digest == dst_file.digest:
             # head is the same, partial copy
-            _tail_size = f.size - df.size
-            _tail_digest = sample_md5(f.path, skip=df.size, size=_tail_size)
-            logging.debug(f"{fname}: head size {df.size} and digest {_head_digest} match, partial copy")
+            _tail_size = src_file.size - dst_file.size
+            _tail_digest = sample_md5(src_file.path, skip=dst_file.size, size=_tail_size)
+            logging.debug(f"{fname}: head size {dst_file.size} and digest {_head_digest} match, partial copy")
             _tasks.append(WocSyncPartialCopyTask(
-                src_path=f.path,
-                dst_path=df.path,
+                src_path=src_file.path,
+                dst_path=dst_file.path,
                 size=_tail_size,
-                digest=f.digest,
-                skip=df.size,
-                part_digest=_tail_digest
+                digest=src_file.digest,
+                skip=dst_file.size,
+                part_digest=_tail_digest,
+                origin_digest=dst_file.digest
             ))
         else:
-            logging.warning(f"{fname}: head size {df.size}, digest mismatch {_head_digest}!={df.digest}, full copy")
+            logging.warning(f"{fname}: head size {dst_file.size}, digest mismatch {_head_digest}!={dst_file.digest}, full copy")
             # digest mismatch, full copy
             _tasks.append(WocSyncCopyTask(
-                src_path=f.path,
-                dst_path=df.path,
-                size=f.size,
-                digest=f.digest
+                src_path=src_file.path,
+                dst_path=dst_file.path,
+                size=src_file.size,
+                digest=src_file.digest
             ))
     
     return _tasks

@@ -13,6 +13,7 @@ class WocSyncCopyTask:
 @dataclass
 class WocSyncPartialCopyTask(WocSyncCopyTask):
     skip: int
+    origin_digest: str
     part_digest: str
 
 def serialize_tasks(
