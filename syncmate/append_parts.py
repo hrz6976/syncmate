@@ -36,8 +36,12 @@ def copyfileobj_progress(
             pbar.update(len(buf))
 
 def _get_remote_fsize(file_path: str):
-    _out = subprocess.check_output(['rclone', 'size', '--json', file_path])
-    return json.loads(_out)['bytes']
+    try:
+        _out = subprocess.check_output(['rclone', 'size', '--json', file_path])
+        return json.loads(_out)['bytes']
+    except subprocess.CalledProcessError as e:
+        logging.error(f'Failed to get remote file size: {e}')
+        return 0
 
 def _remove_remote_file(file_path: str):
     subprocess.run(['rclone', 'delete', file_path])
@@ -48,9 +52,6 @@ def _on_complete(
     remote_path: str,
     remove: bool = False,
 ):
-    if len(_EXCLUDE_CACHE) == 0:
-        with open(WOCSYNC_EXCLUDE_FILE, 'w+') as f:
-            _EXCLUDE_CACHE.update(f.read().splitlines())
     _base_path = os.path.basename(local_path)
     # write to exclude rules
     if _base_path not in _EXCLUDE_CACHE:
@@ -58,9 +59,10 @@ def _on_complete(
         with open(WOCSYNC_EXCLUDE_FILE, 'a+') as f:
             f.write(_base_path + '\n')
 
-    if remove:
+    if remove and os.path.isfile(local_path):
         logging.info(f'Removing {local_path}')
         os.remove(local_path)
+    if remove and _get_remote_fsize(remote_path) > 0:
         logging.info(f'Removing {remote_path}')
         _remove_remote_file(remote_path)
 
@@ -70,9 +72,18 @@ def append_part(
     desc: str = 'append',
     bucket: str = 'r2:woc',
 ):
-    _remote_path = f"{bucket}/{os.path.basename(task.src_path)}.part.{task.size}.{task.part_digest}"
-    _local_path = os.path.join(WOCSYNC_LOCAL_CACHE, f"{os.path.basename(task.src_path)}.part.{task.size}.{task.part_digest}")
+    _base_path = os.path.basename(task.src_path)
+    _remote_path = f"{bucket}/{_base_path}.part.{task.size}.{task.part_digest}"
+    _local_path = os.path.join(WOCSYNC_LOCAL_CACHE, f"{_base_path}.part.{task.size}.{task.part_digest}")
     logging.info(f'append_part: {_local_path} -> {task.dst_path}')
+
+    if len(_EXCLUDE_CACHE) == 0:
+        with open(WOCSYNC_EXCLUDE_FILE, 'a+') as f:
+            _EXCLUDE_CACHE.update(f.read().splitlines())
+    if _base_path in _EXCLUDE_CACHE:
+        logging.info(f'{task.dst_path}: already completed')
+        _on_complete(_local_path,_remote_path,remove)
+        return
 
     # is completed?
     assert os.path.isfile(task.dst_path), f'{task.dst_path}: not found'
