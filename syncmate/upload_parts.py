@@ -16,11 +16,27 @@ def _get_remote_fsize(file_path: str):
     _out = subprocess.check_output(['rclone', 'size', '--json', file_path])
     return json.loads(_out)['bytes']
 
+EXCLUDES = set()
+def _generate_excludes(bucket: str, exclude_file_path: str = './exclude.txt'):
+    _out = subprocess.check_output(['rclone', 'ls', bucket, '--include', '"*.completed"'])
+    fnames = set()
+    for line in _out.split('\n'):
+        _, fname = line.strip().split()
+        fnames.add(fname)
+    with open(exclude_file_path, 'w') as f:
+        f.writelines(fnames)
+    return fnames
+
 def upload_part(
         task: WocSyncPartialCopyTask,
         bucket: str
     ):
-    _remote_fname = f"{bucket}/{os.path.basename(task.src_path)}.part.{task.size}.{task.part_digest}"
+    _fname = f"{os.path.basename(task.src_path)}.part.{task.size}.{task.part_digest}"
+    if _fname in EXCLUDES:
+        logging.info(f"Part {task.src_path} already uploaded, skipping")
+        return
+    
+    _remote_fname = f"{bucket}/{_fname}"
     try:
         _remote_size = _get_remote_fsize(_remote_fname)
         if _remote_size == task.size:
@@ -72,6 +88,9 @@ if __name__ == '__main__':
     pool = multiprocessing.Pool(args.workers)
     _tasks = deserialize_tasks(args.tasks)
     _tasks = [t for t in _tasks if isinstance(t, WocSyncPartialCopyTask)]
+
+    # initialize excludes
+    EXCLUDES = _generate_excludes(args.bucket)
 
     with tqdm(total=len(_tasks)) as pbar:
         for _ in pool.imap_unordered(_worker, [(t, args.bucket, args.retries) for t in _tasks]):

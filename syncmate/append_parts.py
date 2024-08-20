@@ -7,6 +7,7 @@ import json
 
 from syncmate.base import WocSyncCopyTask, WocSyncPartialCopyTask, deserialize_tasks
 from woc.utils import sample_md5
+from datetime import datetime
 
 WOCSYNC_LOCAL_CACHE = '/archive/woc/parts/'
 WOCSYNC_EXCLUDE_FILE = './exclude.txt'
@@ -44,6 +45,21 @@ def _get_remote_fsize(file_path: str):
         return 0
 
 def _remove_remote_file(file_path: str):
+    # create a .completed file
+    p = subprocess.Popen(
+        ['rclone', 'rcat', '-vv', '--s3-no-check-bucket', file_path + ".completed"], 
+        stdin=datetime.now().strftime('%Y-%m-%d %H:%M:%S').encode('utf-8'),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    # Read and print the output line-by-line
+    try:
+        for line in iter(p.stdout.readline, b''):
+            print(line.decode('utf-8'), end='')  # Decode bytes to string
+    finally:
+        p.stdout.close()
+        p.wait()
+
     subprocess.run(['rclone', 'delete', file_path])
 
 _EXCLUDE_CACHE = set()
