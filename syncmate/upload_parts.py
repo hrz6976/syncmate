@@ -21,6 +21,8 @@ def _generate_excludes(bucket: str, exclude_file_path: str = './exclude.txt'):
     _out = subprocess.check_output(['rclone', 'ls', bucket, '--include', '"*.completed"'])
     fnames = set()
     for line in _out.decode().split('\n'):
+        if not line.strip():
+            continue
         _, fname = line.strip().split()
         fnames.add(fname)
     with open(exclude_file_path, 'w') as f:
