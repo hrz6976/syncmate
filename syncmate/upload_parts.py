@@ -4,7 +4,7 @@ import json
 import logging
 import multiprocessing
 from tqdm.auto import tqdm
-from typing import List
+from typing import List, Set
 
 from .base import WocSyncCopyTask, WocSyncPartialCopyTask, deserialize_tasks
 
@@ -16,7 +16,6 @@ def _get_remote_fsize(file_path: str):
     _out = subprocess.check_output(['rclone', 'size', '--json', file_path])
     return json.loads(_out)['bytes']
 
-EXCLUDES = set()
 def _generate_excludes(bucket: str, exclude_file_path: str = './exclude.txt'):
     _out = subprocess.check_output(['rclone', 'ls', bucket, '--include', '*.completed'])
     fnames = set()
@@ -31,10 +30,11 @@ def _generate_excludes(bucket: str, exclude_file_path: str = './exclude.txt'):
 
 def upload_part(
         task: WocSyncPartialCopyTask,
-        bucket: str
+        bucket: str,
+        excludes: Set[str] = {}
     ):
     _fname = f"{os.path.basename(task.src_path)}.part.{task.size}.{task.part_digest}"
-    if _fname in EXCLUDES:
+    if _fname in excludes:
         logging.info(f"Part {task.src_path} already uploaded, skipping")
         return
     
@@ -68,10 +68,10 @@ def upload_part(
 def _worker(
     args
 ):
-    task, bucket, retries = args
+    task, bucket, retries, excludes = args
     while retries > 0:
         try:
-            upload_part(task, bucket)
+            upload_part(task, bucket, excludes)
             return
         except Exception as e:
             logging.error(f"Error: {e}")
@@ -95,7 +95,7 @@ if __name__ == '__main__':
     EXCLUDES = _generate_excludes(args.bucket)
 
     with tqdm(total=len(_tasks)) as pbar:
-        for _ in pool.imap_unordered(_worker, [(t, args.bucket, args.retries) for t in _tasks]):
+        for _ in pool.imap_unordered(_worker, [(t, args.bucket, args.retries, EXCLUDES) for t in _tasks]):
             pbar.update(1)
 
     # for t in tqdm(_tasks):
