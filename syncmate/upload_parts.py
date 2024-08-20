@@ -18,7 +18,7 @@ def _get_remote_fsize(file_path: str):
 
 EXCLUDES = set()
 def _generate_excludes(bucket: str, exclude_file_path: str = './exclude.txt'):
-    _out = subprocess.check_output(['rclone', 'ls', bucket, '--include', '"*.completed"'])
+    _out = subprocess.check_output(['rclone', 'ls', bucket, '--include', '*.completed'])
     fnames = set()
     for line in _out.decode().split('\n'):
         if not line.strip():
