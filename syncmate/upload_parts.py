@@ -24,7 +24,7 @@ def _generate_excludes(bucket: str, exclude_file_path: str = './exclude.txt'):
         if not line.strip():
             continue
         _, fname = line.strip().split()
-        fnames.add(fname)
+        fnames.add(fname.replace('.completed', ''))
     with open(exclude_file_path, 'w') as f:
         f.writelines([f"{fname}\n" for fname in fnames])
     return fnames
