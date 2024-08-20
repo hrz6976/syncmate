@@ -26,7 +26,7 @@ def _generate_excludes(bucket: str, exclude_file_path: str = './exclude.txt'):
         _, fname = line.strip().split()
         fnames.add(fname)
     with open(exclude_file_path, 'w') as f:
-        f.writelines(fnames)
+        f.writelines([f"{fname}\n" for fname in fnames])
     return fnames
 
 def upload_part(
