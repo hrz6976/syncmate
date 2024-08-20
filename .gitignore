@@ -1,3 +1,6 @@
+*.ipynb
+*.jsonl
+
 # Python
 
 # Byte-compiled / optimized / DLL files
